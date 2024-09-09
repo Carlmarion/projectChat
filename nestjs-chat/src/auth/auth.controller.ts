@@ -26,7 +26,8 @@ export class AuthController {
   }
   @UseGuards(JwtAuthGuard)
   @Get()
-  async authenticate(@Req() request: RequestWithUser) {
+  async getAuthenticatedUser(@Req() request: RequestWithUser) {
+    console.log({ requestLog: request.user });
     return await this.userService.getUser({
       userId: request.user.userId,
     });

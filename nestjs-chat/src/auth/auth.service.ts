@@ -15,54 +15,65 @@ export class AuthService {
   ) {}
 
   async login({ authBody }: { authBody: LogUserDto }) {
-    const { email, password } = authBody;
+    try {
+      const { email, password } = authBody;
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
+      const existingUser = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
 
-    if (!existingUser) {
-      throw new Error("user doesn't exist");
+      if (!existingUser) {
+        throw new Error("User doesn't exist");
+      }
+      const isPasswordValid = await this.isPasswordValid({
+        password,
+        hashedPassword: existingUser.password,
+      });
+
+      if (!isPasswordValid) {
+        throw new Error('Invalid password');
+      }
+      // For user creation.
+
+      return this.authenticateUser({ userId: existingUser.id });
+    } catch (error) {
+      return { error: true, message: error.message };
     }
-    const isPasswordValid = await this.isPasswordValid({
-      password,
-      hashedPassword: existingUser.password,
-    });
-
-    if (!isPasswordValid) {
-      throw new Error("Passwords don't match");
-    }
-    // For user creation.
-
-    return this.authenticateUser({ userId: existingUser.id });
   }
 
   async register({ registerBody }: { registerBody: CreateUserDto }) {
-    const { email, firstName, password } = registerBody;
+    try {
+      const { email, firstName, password } = registerBody;
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
+      const existingUser = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
 
-    if (existingUser) {
-      throw new Error('An account already exists for this email address');
+      if (existingUser) {
+        throw new Error('An account already exists for this email address');
+      }
+      const hashedPassword = await this.hashPassword({ password });
+      // We create the user
+      const createdUser = await this.prisma.user.create({
+        data: {
+          email,
+          firstName,
+          password: hashedPassword,
+        },
+      });
+      // For user creation.
+      //const hashPassword = await this.hashPassword({ password });
+      return this.authenticateUser({ userId: createdUser.id });
+    } catch (e) {
+      return {
+        error: true,
+        message: e.message,
+      };
     }
-    const hashedPassword = await this.hashPassword({ password });
-    // We create the user
-    const createdUser = await this.prisma.user.create({
-      data: {
-        email,
-        firstName,
-        password: hashedPassword,
-      },
-    });
-    // For user creation.
-    //const hashPassword = await this.hashPassword({ password });
-    return this.authenticateUser({ userId: createdUser.id });
   }
 
   private async hashPassword({ password }: { password: string }) {
